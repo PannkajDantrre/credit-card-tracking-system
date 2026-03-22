@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Credit Card Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout-shell">
+    <aside class="navigator" id="navigatorPanel">
+      <div class="navigator-top">
+        <div class="row-between navigator-title-row">
+          <div>
+            <p class="eyebrow">Single-user finance tool</p>
+            <h1>Credit Card Manager</h1>
+          </div>
+          <div class="navigator-title-actions">
+            <button class="secondary-btn theme-toggle" id="themeToggleButton" type="button">Dark</button>
+            <button class="secondary-btn mobile-close-btn" id="closeMobileNavButton" type="button">Close</button>
+          </div>
+        </div>
+        <p class="navigator-copy">Ledger-style personal credit card tracking with zero paid services.</p>
+      </div>
+
+      <div class="quick-actions">
+        <button class="primary-btn" id="openTransactionModalButton" type="button">New Transaction</button>
+        <button class="secondary-btn" id="openCardPanelButton" type="button">New Card</button>
+      </div>
+
+      <nav class="view-nav">
+        <button class="view-link active" type="button" data-view="dashboard-view">Dashboard</button>
+        <button class="view-link" type="button" data-view="transactions-view">All Transactions</button>
+        <button class="view-link" type="button" data-view="reward-rules-view">Reward Rules</button>
+        <button class="view-link" type="button" data-view="milestones-view">Milestones</button>
+        <button class="view-link" type="button" data-view="cards-view">Cards & Rules</button>
+        <button class="view-link" type="button" data-view="settings-view">Settings</button>
+      </nav>
+
+      <section class="navigator-section">
+        <div class="section-head">
+          <h2>Card Accounts</h2>
+          <span id="navigatorCardCount">0</span>
+        </div>
+        <div id="navigatorCardList" class="navigator-cards empty-state">No cards added yet.</div>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <div class="mobile-topbar">
+        <button class="secondary-btn mobile-menu-btn" id="openMobileNavButton" type="button">Menu</button>
+        <div class="mobile-topbar-title">
+          <strong>Credit Card Manager</strong>
+          <span id="mobileActiveViewLabel">Dashboard</span>
+        </div>
+        <button class="primary-btn mobile-topbar-action" id="mobileNewTransactionButton" type="button">Add</button>
+      </div>
+      <section id="dashboard-view" class="workspace-view active">
+        <section id="highSpendAlertStrip" class="panel empty-state">No high annual-spend cards right now.</section>
+
+        <section class="hero-card">
+          <div>
+            <p class="eyebrow">Overview</p>
+            <h2>Your credit card account center</h2>
+            <p class="hero-copy">Track due cards, statement order, utilization, and account health from one professional workspace.</p>
+          </div>
+          <div class="hero-right">
+            <div class="metric-tile">
+              <span>Total Cards</span>
+              <strong id="dashboardCardCount">0</strong>
+            </div>
+            <div class="metric-tile">
+              <span>Upcoming Dues</span>
+              <strong id="upcomingDues">0</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Due In Next 5 Days</h3>
+              <p>Cards needing payment attention immediately.</p>
+            </div>
+            <div id="priorityDueList" class="stack-list empty-state">No card is due within the next 5 days.</div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Statement Date Order</h3>
+              <p>Cards sorted in bill generation order.</p>
+            </div>
+            <div id="statementOrderList" class="stack-list empty-state">No cards available yet.</div>
+          </article>
+        </section>
+
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Card Utilization</h3>
+              <p>Available limit versus current utilization.</p>
+            </div>
+            <div id="utilizationList" class="stack-list empty-state">No cards available yet.</div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Cards By Bank</h3>
+              <p>Grouped accounts for fast access.</p>
+            </div>
+            <div id="bankGroupList" class="bank-group-list empty-state">No grouped card data yet.</div>
+          </article>
+        </section>
+
+      </section>
+
+      <section id="reward-rules-view" class="workspace-view">
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Reward Rules</h3>
+              <p>Maintain card-wise reward rules directly in this app.</p>
+            </div>
+            <form id="rewardRuleForm" class="filter-grid">
+              <label>
+                Card
+                <select id="rewardRuleCard"></select>
+              </label>
+              <label>
+                Category
+                <input type="text" id="rewardRuleCategory" list="rewardRuleCategorySuggestions" placeholder="Shopping / All / Food & Dining" required>
+              </label>
+              <label>
+                Rule Scope
+                <select id="rewardRuleScope">
+                  <option value="category">Category Wide</option>
+                  <option value="merchant">Merchant Specific</option>
+                  <option value="category-merchant">Category + Merchant</option>
+                </select>
+              </label>
+              <label>
+                Merchant
+                <input type="text" id="rewardRuleMerchant" placeholder="Any / leave blank for full category" list="rewardRuleMerchantSuggestions">
+              </label>
+              <label>
+                Base Unit
+                <input type="number" id="rewardRuleBaseUnit" min="1" step="1" placeholder="100" required>
+              </label>
+              <label>
+                Reward Per Unit
+                <input type="number" id="rewardRuleRewardPerUnit" min="0" step="0.01" placeholder="5" required>
+              </label>
+              <label>
+                Multiplier
+                <input type="number" id="rewardRuleMultiplier" min="0" step="0.01" placeholder="1" required>
+              </label>
+              <label>
+                Priority
+                <input type="number" id="rewardRulePriority" min="1" step="1" placeholder="1" required>
+              </label>
+              <div class="filter-actions">
+                <button class="primary-btn" type="submit">Save Rule</button>
+                <button class="secondary-btn" id="cancelRewardRuleEditButton" type="button" hidden>Cancel Edit</button>
+              </div>
+              <datalist id="rewardRuleCategorySuggestions"></datalist>
+              <datalist id="rewardRuleMerchantSuggestions"></datalist>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Active Reward Rules</h3>
+              <p>These rules are used first for reward calculation.</p>
+            </div>
+            <div class="ledger-wrap">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Card</th>
+                    <th>Category</th>
+                    <th>Scope</th>
+                    <th>Merchant</th>
+                    <th>Base</th>
+                    <th>Reward</th>
+                    <th>Multiplier</th>
+                    <th>Final</th>
+                    <th>Priority</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="rewardRulesTableBody">
+                  <tr>
+                    <td colspan="10">No reward rules added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section id="milestones-view" class="workspace-view">
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Milestones</h3>
+              <p>Maintain annual spend milestones in a separate tab.</p>
+            </div>
+            <form id="milestoneForm" class="filter-grid">
+              <label>
+                Card
+                <select id="milestoneCard"></select>
+              </label>
+              <label>
+                Milestone Type
+                <input type="text" id="milestoneType" placeholder="Bonus Point / Free Night / Fee Waiver" required>
+              </label>
+              <label>
+                Cycle Type
+                <select id="milestoneCycleType">
+                  <option value="Annual">Annual</option>
+                  <option value="Quarterly">Quarterly</option>
+                  <option value="Monthly">Monthly</option>
+                </select>
+              </label>
+              <label>
+                Spend Requirement
+                <input type="number" id="milestoneTarget" min="0" step="1" placeholder="500000" required>
+              </label>
+              <label>
+                Reward Type
+                <input type="text" id="milestoneRewardType" placeholder="Bonus Point / Voucher / Free Night" required>
+              </label>
+              <label>
+                Reward Value
+                <input type="number" id="milestoneRewardValue" min="0" step="0.01" placeholder="10000" required>
+              </label>
+              <label>
+                Notes
+                <input type="text" id="milestoneNotes" placeholder="Bonus - 10000">
+              </label>
+              <div class="filter-actions">
+                <button class="primary-btn" type="submit">Save Milestone</button>
+                <button class="secondary-btn" id="cancelMilestoneEditButton" type="button" hidden>Cancel Edit</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Active Milestones</h3>
+              <p>Annual spend milestone rules used for progress tracking.</p>
+            </div>
+            <div class="ledger-wrap">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Card</th>
+                    <th>Cycle</th>
+                    <th>Milestone Type</th>
+                    <th>Spend Requirement</th>
+                    <th>Reward Type</th>
+                    <th>Reward Value</th>
+                    <th>Notes</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="milestonesTableBody">
+                  <tr>
+                    <td colspan="8">No milestones added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section id="transactions-view" class="workspace-view">
+        <section class="panel">
+          <div class="panel-header">
+            <h3>All Transactions</h3>
+            <p>Search by merchant, client, card, category, or date.</p>
+          </div>
+          <form class="filter-grid" id="transactionSearchForm">
+            <label>
+              Merchant
+              <input type="text" id="transactionSearchMerchant" placeholder="Search merchant">
+            </label>
+            <label>
+              Client / Description
+              <input type="text" id="transactionSearchDescription" placeholder="Search client name">
+            </label>
+            <label>
+              Card
+              <select id="transactionSearchCard">
+                <option value="">All Cards</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select id="transactionSearchCategory">
+                <option value="">All Categories</option>
+              </select>
+            </label>
+            <label>
+              Transaction Nature
+              <select id="transactionSearchNature">
+                <option value="">All Types</option>
+              </select>
+            </label>
+            <label>
+              From Date
+              <input type="date" id="transactionSearchFromDate">
+            </label>
+            <label>
+              To Date
+              <input type="date" id="transactionSearchToDate">
+            </label>
+            <label>
+              Min Amount
+              <input type="number" id="transactionSearchMinAmount" min="0" step="0.01" placeholder="0">
+            </label>
+            <label>
+              Max Amount
+              <input type="number" id="transactionSearchMaxAmount" min="0" step="0.01" placeholder="100000">
+            </label>
+            <div class="filter-actions">
+              <button class="secondary-btn" id="clearTransactionSearchButton" type="button">Clear Search</button>
+            </div>
+          </form>
+          <div id="transactionSearchSummary" class="result-card empty-state">Search by merchant or client name to see matching totals.</div>
+          <div class="ledger-wrap">
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Card</th>
+                  <th>Merchant / Client</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Rewards</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="transactionTableBody">
+                <tr>
+                  <td colspan="8">No transactions recorded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="account-view" class="workspace-view">
+        <section class="account-header">
+          <div>
+            <h2 id="accountViewTitle">Account View</h2>
+            <p id="accountViewSubtitle">Select a card account from the navigator to open its ledger.</p>
+          </div>
+          <div class="account-actions">
+            <button class="secondary-btn" id="backToDashboardButton" type="button">Back to Dashboard</button>
+          </div>
+        </section>
+
+        <section class="account-summary-row" id="accountSnapshotRow">
+          <article class="snapshot-tile">
+            <span>Available Limit</span>
+            <strong id="accountAvailableLimit">₹0</strong>
+          </article>
+          <article class="snapshot-tile">
+            <span>Total Limit</span>
+            <strong id="accountTotalLimit">₹0</strong>
+          </article>
+          <article class="snapshot-tile">
+            <span>Outstanding</span>
+            <strong id="accountOutstanding">₹0</strong>
+          </article>
+          <article class="snapshot-tile">
+            <span>Unbilled</span>
+            <strong id="accountUnbilled">₹0</strong>
+          </article>
+          <article class="snapshot-tile">
+            <span>Anniversary Spend</span>
+            <strong id="accountAnniversarySpend">₹0</strong>
+          </article>
+          <article class="snapshot-tile">
+            <span>Total Rewards</span>
+            <strong id="accountRewardTotal">0 pts</strong>
+          </article>
+        </section>
+
+        <section id="accountCycleSummary" class="panel">
+          <div class="panel-header">
+            <h3>Current Bill Cycle</h3>
+            <p>Billed amount, payments made, and pending amount for the latest generated bill.</p>
+          </div>
+          <div class="account-cycle-grid">
+            <article class="snapshot-tile">
+              <span>Cycle</span>
+              <strong id="accountCycleLabel">-</strong>
+            </article>
+            <article class="snapshot-tile">
+              <span>Bill Generated</span>
+              <strong id="accountCycleBilled">₹0</strong>
+            </article>
+            <article class="snapshot-tile">
+              <span>Payments Done</span>
+              <strong id="accountCyclePaid" class="amount-credit">₹0</strong>
+            </article>
+            <article class="snapshot-tile">
+              <span>Pending</span>
+              <strong id="accountCyclePending" class="amount-debit">₹0</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Account Summary</h3>
+              <p>Statement, due date, client usage, and reward summary.</p>
+            </div>
+            <div id="accountMetaSummary" class="stack-list empty-state">No card selected.</div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Quick Search</h3>
+              <p>Track this card by merchant or client.</p>
+            </div>
+            <form class="filter-grid compact-filter-grid">
+              <label>
+                Merchant
+                <input type="text" id="accountSearchMerchant" placeholder="Search merchant">
+              </label>
+              <label>
+                Client / Description
+                <input type="text" id="accountSearchDescription" placeholder="Search client">
+              </label>
+              <div class="filter-actions">
+                <button class="secondary-btn" id="clearAccountSearchButton" type="button">Clear Search</button>
+              </div>
+            </form>
+            <div id="accountSearchSummary" class="result-card empty-state">Search this card ledger by merchant or client.</div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h3>Account Ledger</h3>
+            <p>Full transaction history for the selected card.</p>
+          </div>
+          <div class="ledger-wrap">
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Merchant / Client</th>
+                  <th>Category</th>
+                  <th>Nature</th>
+                  <th>Amount</th>
+                  <th>Rewards</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="accountTransactionTableBody">
+                <tr>
+                  <td colspan="8">No card selected.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="cards-view" class="workspace-view">
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Card Portfolio</h3>
+              <p>Professional card management with fast search, setup health, and shared-limit visibility.</p>
+            </div>
+            <section class="card-management-metrics">
+              <article class="metric-tile">
+                <span>Total Cards</span>
+                <strong id="cardSummaryTotal">0</strong>
+              </article>
+              <article class="metric-tile">
+                <span>Banks</span>
+                <strong id="cardSummaryBanks">0</strong>
+              </article>
+              <article class="metric-tile">
+                <span>Shared Groups</span>
+                <strong id="cardSummaryShared">0</strong>
+              </article>
+              <article class="metric-tile">
+                <span>Due In 7 Days</span>
+                <strong id="cardSummaryDueSoon">0</strong>
+              </article>
+            </section>
+            <form class="filter-grid compact-filter-grid" id="cardSearchForm">
+              <label>
+                Card / Bank
+                <input type="text" id="cardSearchName" placeholder="Search card or bank">
+              </label>
+              <label>
+                Shared Group
+                <input type="text" id="cardSearchGroup" placeholder="Search shared limit group">
+              </label>
+              <label>
+                Statement / Due Date
+                <input type="text" id="cardSearchCycle" placeholder="Search 5 / 23 / 18th">
+              </label>
+              <div class="filter-actions">
+                <button class="secondary-btn" id="clearCardSearchButton" type="button">Clear Search</button>
+              </div>
+            </form>
+            <div id="cardsSearchSummary" class="result-card empty-state">Search cards by name, bank, group, or billing cycle to review your portfolio faster.</div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Card Management</h3>
+              <p>Add or edit cards, limits, due dates, and account preferences from one place.</p>
+            </div>
+            <div class="result-card">
+              <strong>Primary Setup Source</strong>
+              <p class="mini-text">Use the dedicated <code>Reward Rules</code> and <code>Milestones</code> tabs for active logic. The optional fallback JSON fields below are only for backup or special cases.</p>
+            </div>
+            <form id="cardForm" class="card-form-grid">
+              <label>
+                Card Name
+                <input type="text" id="cardName" required placeholder="HDFC Regalia">
+              </label>
+              <label>
+                Bank Name
+                <input type="text" id="bankName" required placeholder="HDFC Bank">
+              </label>
+              <label>
+                Credit Limit
+                <input type="number" id="creditLimit" min="0" step="0.01" required placeholder="155000">
+              </label>
+              <label>
+                Billing Cycle Date
+                <input type="number" id="billingCycleDate" min="1" max="31" required placeholder="5">
+              </label>
+              <label>
+                Due Date
+                <input type="number" id="dueDate" min="1" max="31" required placeholder="23">
+              </label>
+              <label>
+                Statement Date
+                <input type="number" id="statementDate" min="1" max="31" required placeholder="5">
+              </label>
+              <label>
+                Anniversary Date
+                <input type="date" id="anniversaryDate" required>
+              </label>
+              <label>
+                Renewal Target
+                <input type="number" id="renewalTarget" min="0" step="0.01" placeholder="250000">
+              </label>
+              <label>
+                Shared Group
+                <input type="text" id="sharedGroup" placeholder="Kotak Bank">
+              </label>
+              <label>
+                Preferred Categories
+                <input type="text" id="preferredCategories" placeholder="Travel, Insurance">
+              </label>
+              <label>
+                Preferred Transaction Types
+                <input type="text" id="preferredTransactionTypes" placeholder="Online, POS">
+              </label>
+              <label>
+                Supported Transaction Nature
+                <input type="text" id="supportedTransactionNature" placeholder="Expense, Payment, Refund">
+              </label>
+              <details class="advanced-config full-span">
+                <summary>Advanced Fallback JSON (Optional)</summary>
+                <div class="advanced-config-grid">
+                  <label>
+                    Reward Rules Fallback
+                    <textarea id="rewardRules" rows="4" placeholder="Fuel: 1%&#10;Travel: 5%"></textarea>
+                  </label>
+                  <label>
+                    Advanced Reward Rules Fallback
+                    <textarea id="advancedRewardRules" rows="5" placeholder='[{"category":"Travel","merchant":"Marriott","baseUnit":150,"rewardPerUnit":8,"multiplier":1,"priority":1}]'></textarea>
+                  </label>
+                  <label>
+                    Milestones Fallback
+                    <textarea id="milestones" rows="4" placeholder='[{"target":600000,"reward":"Free Night - 1"}]'></textarea>
+                  </label>
+                  <label>
+                    Annual Benefits Fallback
+                    <textarea id="annualBenefits" rows="4" placeholder='[{"target":250000,"benefit":"Annual Fee Waiver"}]'></textarea>
+                  </label>
+                </div>
+              </details>
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Save Card</button>
+                <button class="secondary-btn" id="cancelCardEditButton" type="button" hidden>Cancel Edit</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Saved Cards</h3>
+              <p>Edit any card from the ledger system.</p>
+            </div>
+            <div class="ledger-wrap">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Card</th>
+                    <th>Bank</th>
+                    <th>Group</th>
+                    <th>Limit</th>
+                    <th>Available</th>
+                    <th>Outstanding</th>
+                    <th>Statement</th>
+                    <th>Due</th>
+                    <th>Rules</th>
+                    <th>Milestones</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="cardTableBody">
+                  <tr>
+                    <td colspan="11">No cards added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Shared Limit Groups</h3>
+              <p>Manage one common limit for cards that share the same bank credit line.</p>
+            </div>
+            <form id="sharedLimitGroupForm" class="filter-grid compact-filter-grid">
+              <label>
+                Group Name
+                <input type="text" id="sharedLimitGroupName" placeholder="HDFC Shared" required>
+              </label>
+              <label>
+                Total Shared Limit
+                <input type="number" id="sharedLimitGroupLimit" min="0" step="0.01" placeholder="500000" required>
+              </label>
+              <label>
+                Member Cards
+                <select id="sharedLimitGroupMembers" multiple size="6"></select>
+              </label>
+              <label>
+                Notes
+                <input type="text" id="sharedLimitGroupNotes" placeholder="Regalia + Swiggy + Tata Neo + Marriott">
+              </label>
+              <div class="filter-actions">
+                <button class="primary-btn" type="submit">Save Group</button>
+                <button class="secondary-btn" id="cancelSharedLimitGroupEditButton" type="button" hidden>Cancel Edit</button>
+              </div>
+            </form>
+            <div class="ledger-wrap">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Group</th>
+                    <th>Total Limit</th>
+                    <th>Members</th>
+                    <th>Used</th>
+                    <th>Available</th>
+                    <th>Notes</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="sharedLimitGroupsTableBody">
+                  <tr>
+                    <td colspan="7">No shared limit groups added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section id="settings-view" class="workspace-view">
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Sync & Backup</h3>
+              <p>Google Sheets sync, export backup, and import backup.</p>
+            </div>
+            <div class="status-box settings-status-box">
+              <p class="status-label">Backend Status</p>
+              <strong id="connectionStatus">Local only</strong>
+              <p id="lastSyncText">Add your Apps Script URL in Settings to enable Google Sheets sync.</p>
+            </div>
+            <form id="settingsForm" class="filter-grid">
+              <label class="full-span">
+                Apps Script Web App URL
+                <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+              </label>
+              <div class="filter-actions full-span">
+                <button class="primary-btn" type="submit">Save Settings</button>
+                <button class="secondary-btn" id="syncButton" type="button">Sync From Google Sheets</button>
+                <button class="secondary-btn" id="pushLocalDataButton" type="button">Push Local Data To Google Sheets</button>
+                <button class="secondary-btn" id="exportBackupButton" type="button">Export Backup</button>
+                <button class="secondary-btn" id="importBackupButton" type="button">Import Backup</button>
+              </div>
+            </form>
+            <input type="file" id="backupFileInput" accept=".json,application/json" hidden>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>System Notes</h3>
+              <p>How the ledger model works.</p>
+            </div>
+            <div class="stack-list">
+              <div class="list-card">
+                <h4>Debit / Expense</h4>
+                <p class="mini-text">Red. Reduces available limit and increases outstanding.</p>
+              </div>
+              <div class="list-card">
+                <h4>Credit / Payment / Refund</h4>
+                <p class="mini-text">Green. Restores available limit and reduces outstanding.</p>
+              </div>
+              <div class="list-card">
+                <h4>Client Tracking</h4>
+                <p class="mini-text">Use Description to store client name. Search by merchant or description in All Transactions and Account View.</p>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="transactionModal" class="modal-shell hidden">
+    <div class="modal-card">
+      <div class="panel-header">
+        <div>
+          <h3 id="transactionModalTitle">New Transaction</h3>
+          <p>Add debit, payment, refund, or bonus entry.</p>
+        </div>
+        <button class="icon-btn" id="closeTransactionModalButton" type="button">&times;</button>
+      </div>
+      <form id="transactionForm" class="card-form-grid">
+        <label>
+          Date
+          <input type="date" id="transactionDate" required>
+        </label>
+        <label>
+          Card Name
+          <select id="transactionCard" required></select>
+        </label>
+        <label>
+          Amount
+          <input type="number" id="transactionAmount" min="0" step="0.01" required placeholder="2500">
+        </label>
+        <label>
+          Category
+          <select id="transactionCategory" required></select>
+        </label>
+        <label>
+          Description / Client
+          <input type="text" id="transactionDescription" list="descriptionSuggestions" placeholder="Client name / policy / order" required>
+        </label>
+        <label>
+          Merchant
+          <input type="text" id="transactionMerchant" list="merchantSuggestions" placeholder="Amazon / ICICI Lombard / Indian Oil" required>
+        </label>
+        <label>
+          Transaction Nature
+          <select id="transactionNature" required></select>
+        </label>
+        <label>
+          Transaction Type
+          <select id="transactionType" required></select>
+        </label>
+        <label>
+          Payment Status
+          <select id="paymentStatus" required></select>
+        </label>
+        <label>
+          Bill PDF Link
+          <input type="url" id="billPdfLink" placeholder="Optional link">
+        </label>
+        <label>
+          Unbilled Amount
+          <input type="number" id="unbilledAmount" min="0" step="0.01" placeholder="0">
+        </label>
+        <label>
+          Notes
+          <input type="text" id="transactionNotes" placeholder="Optional note">
+        </label>
+        <div class="full-span">
+          <datalist id="merchantSuggestions"></datalist>
+          <datalist id="descriptionSuggestions"></datalist>
+          <p id="transactionPreview" class="helper-text">Reward preview will appear here.</p>
+        </div>
+        <div class="form-actions full-span">
+          <button class="primary-btn" type="submit">Save Transaction</button>
+          <button class="secondary-btn" id="cancelTransactionEditButton" type="button" hidden>Cancel Edit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
