@@ -200,6 +200,7 @@ function cacheElements() {
   elements.settingsForm = document.getElementById("settingsForm");
   elements.scriptUrl = document.getElementById("scriptUrl");
   elements.syncButton = document.getElementById("syncButton");
+  elements.replaceWithRemoteButton = document.getElementById("replaceWithRemoteButton");
   elements.pushLocalDataButton = document.getElementById("pushLocalDataButton");
   elements.exportBackupButton = document.getElementById("exportBackupButton");
   elements.importBackupButton = document.getElementById("importBackupButton");
@@ -261,6 +262,7 @@ function bindEvents() {
   elements.cancelRewardRuleEditButton.addEventListener("click", resetRewardRuleForm);
   elements.cancelMilestoneEditButton.addEventListener("click", resetMilestoneForm);
   elements.syncButton.addEventListener("click", syncFromRemote);
+  elements.replaceWithRemoteButton.addEventListener("click", replaceLocalWithRemote);
   elements.pushLocalDataButton.addEventListener("click", pushLocalDataToGoogleSheets);
   elements.exportBackupButton.addEventListener("click", exportBackup);
   elements.importBackupButton.addEventListener("click", () => elements.backupFileInput.click());
@@ -333,6 +335,7 @@ function loadLocalState() {
     state.milestoneCatalog = Array.isArray(parsed.milestoneCatalog) ? parsed.milestoneCatalog.map(normalizeMilestoneRule) : [];
     state.sharedLimitGroups = Array.isArray(parsed.sharedLimitGroups) ? parsed.sharedLimitGroups.map(normalizeSharedLimitGroup) : [];
     state.lastSync = parsed.lastSync || null;
+    dedupeState();
   } catch (error) {
     console.error("Unable to load local state", error);
   }
@@ -381,6 +384,106 @@ function seedStarterData() {
   });
 
   saveLocalState();
+}
+
+function dedupeState() {
+  state.cards = dedupeCardsByName(state.cards, state.transactions);
+  state.rewardRulesCatalog = dedupeItemsByKey(state.rewardRulesCatalog, (rule) => [
+    normalizeCardKey(rule.cardName),
+    normalizeCardKey(rule.category),
+    normalizeCardKey(rule.scope),
+    normalizeCardKey(rule.merchant),
+    Number(rule.baseUnit || 0),
+    Number(rule.rewardPerUnit || 0),
+    Number(rule.multiplier || 0),
+    Number(rule.priority || 0)
+  ].join("|"));
+  state.milestoneCatalog = dedupeItemsByKey(state.milestoneCatalog, (rule) => [
+    normalizeCardKey(rule.cardName),
+    normalizeCardKey(rule.cycleType),
+    normalizeCardKey(rule.milestoneType),
+    Number(rule.target || 0),
+    normalizeCardKey(rule.rewardType),
+    Number(rule.rewardValue || 0)
+  ].join("|"));
+  state.sharedLimitGroups = dedupeItemsByKey(state.sharedLimitGroups, (group) => normalizeCardKey(group.groupName));
+
+  if (state.ui.activeCardId && !getCardById(state.ui.activeCardId)) {
+    state.ui.activeCardId = null;
+  }
+}
+
+function removeStarterCardsFromState(localCards, remoteCards) {
+  if (!Array.isArray(remoteCards) || !remoteCards.length) {
+    return localCards || [];
+  }
+
+  return (localCards || []).filter((card) => {
+    const cardNameKey = normalizeCardKey(card.cardName);
+    const isStarterCard = STARTER_CARD_NAMES.some((name) => normalizeCardKey(name) === cardNameKey);
+    if (!isStarterCard) {
+      return true;
+    }
+
+    const existsInRemote = remoteCards.some((remoteCard) => normalizeCardKey(remoteCard.cardName) === cardNameKey);
+    return !existsInRemote;
+  });
+}
+
+function dedupeCardsByName(cards, transactions) {
+  const deduped = new Map();
+
+  (cards || []).forEach((card) => {
+    const normalized = normalizeCard(card);
+    const key = normalizeCardKey(normalized.cardName);
+    if (!key) {
+      return;
+    }
+
+    const existing = deduped.get(key);
+    if (!existing) {
+      deduped.set(key, normalized);
+      return;
+    }
+
+    const existingScore = getCardMergeScore(existing, transactions);
+    const currentScore = getCardMergeScore(normalized, transactions);
+    deduped.set(key, currentScore >= existingScore ? normalized : existing);
+  });
+
+  return Array.from(deduped.values());
+}
+
+function getCardMergeScore(card, transactions) {
+  const linkedTransactions = (transactions || []).filter((item) => {
+    return String(item.cardId || "") === String(card.id)
+      || normalizeCardKey(item.cardName) === normalizeCardKey(card.cardName);
+  }).length;
+
+  const richness = [
+    Number(card.creditLimit || 0) > 0,
+    Number(card.statementDate || 0) > 0,
+    Number(card.dueDate || 0) > 0,
+    Boolean(card.bankName),
+    Boolean(card.anniversaryDate),
+    Array.isArray(card.preferredCategories) && card.preferredCategories.length > 0,
+    Array.isArray(card.preferredTransactionTypes) && card.preferredTransactionTypes.length > 0
+  ].filter(Boolean).length;
+
+  return (linkedTransactions * 100) + richness;
+}
+
+function dedupeItemsByKey(items, getKey) {
+  const map = new Map();
+  (items || []).forEach((item) => {
+    const normalized = item;
+    const key = getKey(normalized);
+    if (!key) {
+      return;
+    }
+    map.set(key, normalized);
+  });
+  return Array.from(map.values());
 }
 
 function getRewardRulesForCard(card) {
@@ -1707,12 +1810,14 @@ async function syncFromRemote() {
       throw new Error(payload.message || "Unable to sync.");
     }
 
-    state.cards = mergeRecordsById(state.cards, Array.isArray(payload.data.cards) ? payload.data.cards.map(normalizeCard) : [], normalizeCard);
+    const remoteCards = Array.isArray(payload.data.cards) ? payload.data.cards.map(normalizeCard) : [];
+    state.cards = mergeRecordsById(removeStarterCardsFromState(state.cards, remoteCards), remoteCards, normalizeCard);
     state.transactions = mergeRecordsById(state.transactions, Array.isArray(payload.data.transactions) ? payload.data.transactions.map(normalizeTransaction) : [], normalizeTransaction);
     state.rewardActivities = mergeRecordsById(state.rewardActivities, Array.isArray(payload.data.rewardActivities) ? payload.data.rewardActivities.map(normalizeRewardActivity) : [], normalizeRewardActivity);
     state.rewardRulesCatalog = mergeRecordsById(state.rewardRulesCatalog, Array.isArray(payload.data.rewardRules) ? payload.data.rewardRules.map(normalizeAdvancedRewardRule) : [], normalizeAdvancedRewardRule);
     state.milestoneCatalog = mergeRecordsById(state.milestoneCatalog, Array.isArray(payload.data.milestones) ? payload.data.milestones.map(normalizeMilestoneRule) : [], normalizeMilestoneRule);
     state.sharedLimitGroups = mergeRecordsById(state.sharedLimitGroups, Array.isArray(payload.data.sharedLimitGroups) ? payload.data.sharedLimitGroups.map(normalizeSharedLimitGroup) : [], normalizeSharedLimitGroup);
+    dedupeState();
     recalculateAllRewardPoints();
     state.lastSync = new Date().toISOString();
 
@@ -1722,6 +1827,38 @@ async function syncFromRemote() {
   } catch (error) {
     console.error(error);
     showToast("Sync failed. Check your Apps Script deployment.");
+  }
+}
+
+async function replaceLocalWithRemote() {
+  if (!state.settings.scriptUrl) {
+    showToast("Add your Apps Script URL first.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${state.settings.scriptUrl}?action=fetchAll`, { method: "GET" });
+    const payload = await response.json();
+    if (!payload.success) {
+      throw new Error(payload.message || "Unable to sync.");
+    }
+
+    state.cards = Array.isArray(payload.data.cards) ? payload.data.cards.map(normalizeCard) : [];
+    state.transactions = Array.isArray(payload.data.transactions) ? payload.data.transactions.map(normalizeTransaction) : [];
+    state.rewardActivities = Array.isArray(payload.data.rewardActivities) ? payload.data.rewardActivities.map(normalizeRewardActivity) : [];
+    state.rewardRulesCatalog = Array.isArray(payload.data.rewardRules) ? payload.data.rewardRules.map(normalizeAdvancedRewardRule) : [];
+    state.milestoneCatalog = Array.isArray(payload.data.milestones) ? payload.data.milestones.map(normalizeMilestoneRule) : [];
+    state.sharedLimitGroups = Array.isArray(payload.data.sharedLimitGroups) ? payload.data.sharedLimitGroups.map(normalizeSharedLimitGroup) : [];
+    dedupeState();
+    recalculateAllRewardPoints();
+    state.lastSync = new Date().toISOString();
+
+    saveLocalState();
+    renderApp();
+    showToast("Local data replaced with Google Sheets successfully.");
+  } catch (error) {
+    console.error(error);
+    showToast("Replace failed. Check your Apps Script deployment.");
   }
 }
 
