@@ -567,6 +567,26 @@ body.dark-theme .high-spend-chip {
   grid-column: 1 / -1;
 }
 
+.emi-inline-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.emi-mini-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.emi-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+
 .form-actions,
 .filter-actions {
   display: flex;
@@ -762,6 +782,7 @@ label {
   .card-form-grid,
   .compact-filter-grid,
   .account-meta-grid,
+  .emi-mini-grid,
   .advanced-config-grid {
     grid-template-columns: 1fr;
   }

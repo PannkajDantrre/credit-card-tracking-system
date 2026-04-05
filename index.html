@@ -34,6 +34,7 @@
       <nav class="view-nav">
         <button class="view-link active" type="button" data-view="dashboard-view">Dashboard</button>
         <button class="view-link" type="button" data-view="transactions-view">All Transactions</button>
+        <button class="view-link" type="button" data-view="emi-view">EMI Tracker</button>
         <button class="view-link" type="button" data-view="reward-rules-view">Reward Rules</button>
         <button class="view-link" type="button" data-view="milestones-view">Milestones</button>
         <button class="view-link" type="button" data-view="cards-view">Cards & Rules</button>
@@ -357,6 +358,190 @@
         </section>
       </section>
 
+      <section id="emi-view" class="workspace-view">
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>EMI Tracker</h3>
+              <p>Track converted EMI accounts, installment progress, and one-time charges.</p>
+            </div>
+            <form id="emiForm" class="filter-grid">
+              <label>
+                Card
+                <select id="emiCard"></select>
+              </label>
+              <label>
+                Merchant
+                <input type="text" id="emiMerchant" placeholder="Amex / Amazon / Malabar">
+              </label>
+              <label>
+                Client / Description
+                <input type="text" id="emiDescription" placeholder="Client name or EMI note">
+              </label>
+              <label>
+                Original Amount
+                <input type="number" id="emiOriginalAmount" min="0" step="0.01" placeholder="50000" required>
+              </label>
+              <label>
+                Conversion Date
+                <input type="date" id="emiConversionDate" required>
+              </label>
+              <label>
+                Total Tenure
+                <input type="number" id="emiTenureMonths" min="1" step="1" placeholder="6" required>
+              </label>
+              <label>
+                EMI Amount
+                <input type="number" id="emiMonthlyAmount" min="0" step="0.01" placeholder="8650" required>
+              </label>
+              <label>
+                Processing Fee
+                <input type="number" id="emiProcessingFee" min="0" step="0.01" placeholder="499">
+              </label>
+              <label>
+                Processing Fee GST
+                <input type="number" id="emiProcessingFeeGst" min="0" step="0.01" placeholder="89.82">
+              </label>
+              <label>
+                Next EMI Date
+                <input type="date" id="emiNextDueDate">
+              </label>
+              <label>
+                Status
+                <select id="emiStatus">
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </label>
+              <label class="full-span">
+                Notes
+                <textarea id="emiNotes" placeholder="One-time conversion charges, statement notes, bank EMI reference"></textarea>
+              </label>
+              <div class="filter-actions">
+                <button class="primary-btn" type="submit">Save EMI</button>
+                <button class="secondary-btn" id="cancelEmiEditButton" type="button" hidden>Cancel Edit</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Active EMI Accounts</h3>
+              <p>Manage card-wise EMI balances, paid progress, and pending amount.</p>
+            </div>
+            <div id="emiSummaryCard" class="result-card empty-state">No EMI accounts added yet.</div>
+            <div class="ledger-wrap">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Card</th>
+                    <th>Merchant / Client</th>
+                    <th>Tenure</th>
+                    <th>EMI</th>
+                    <th>Remaining</th>
+                    <th>Principal Left</th>
+                    <th>Interest + GST Left</th>
+                    <th>One-Time Charges</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="emiTableBody">
+                  <tr>
+                    <td colspan="10">No EMI accounts added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="summary-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>EMI Installments</h3>
+              <p>Add month-wise principal, interest, and GST when the bank schedule changes every time.</p>
+            </div>
+            <form id="emiInstallmentForm" class="filter-grid">
+              <label>
+                EMI Account
+                <select id="emiInstallmentEmiId"></select>
+              </label>
+              <label>
+                Installment No
+                <input type="number" id="emiInstallmentNumber" min="1" step="1" placeholder="1" required>
+              </label>
+              <label>
+                Due Date
+                <input type="date" id="emiInstallmentDueDate" required>
+              </label>
+              <label>
+                Principal
+                <input type="number" id="emiInstallmentPrincipal" min="0" step="0.01" placeholder="7000" required>
+              </label>
+              <label>
+                Interest
+                <input type="number" id="emiInstallmentInterest" min="0" step="0.01" placeholder="620" required>
+              </label>
+              <label>
+                GST
+                <input type="number" id="emiInstallmentGst" min="0" step="0.01" placeholder="111.6" required>
+              </label>
+              <label>
+                Total EMI
+                <input type="number" id="emiInstallmentTotal" min="0" step="0.01" placeholder="7731.60" required>
+              </label>
+              <label>
+                Status
+                <select id="emiInstallmentStatus">
+                  <option value="Unpaid">Unpaid</option>
+                  <option value="Paid">Paid</option>
+                </select>
+              </label>
+              <label class="full-span">
+                Notes
+                <input type="text" id="emiInstallmentNotes" placeholder="Stmt row / schedule note">
+              </label>
+              <div class="filter-actions">
+                <button class="primary-btn" type="submit">Save Installment</button>
+                <button class="secondary-btn" id="addNextEmiInstallmentButton" type="button">Add Next Installment</button>
+                <button class="secondary-btn" id="cancelEmiInstallmentEditButton" type="button" hidden>Cancel Edit</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Installment Schedule</h3>
+              <p>Use this when principal stays fixed but interest and GST keep changing.</p>
+            </div>
+            <div class="ledger-wrap">
+              <table class="ledger-table">
+                <thead>
+                  <tr>
+                    <th>EMI Account</th>
+                    <th>No</th>
+                    <th>Due Date</th>
+                    <th>Principal</th>
+                    <th>Interest</th>
+                    <th>GST</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="emiInstallmentTableBody">
+                  <tr>
+                    <td colspan="9">No EMI installments added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+
       <section id="account-view" class="workspace-view">
         <section class="account-header">
           <div>
@@ -418,6 +603,32 @@
               <strong id="accountCyclePending" class="amount-debit">₹0</strong>
             </article>
           </div>
+        </section>
+
+        <section id="accountEmiSummary" class="panel">
+          <div class="panel-header">
+            <h3>Active EMI</h3>
+            <p>Remaining EMI amount, principal, and interest plus GST for this card.</p>
+          </div>
+          <div class="account-cycle-grid">
+            <article class="snapshot-tile">
+              <span>Active EMI Count</span>
+              <strong id="accountEmiCount">0</strong>
+            </article>
+            <article class="snapshot-tile">
+              <span>EMI Remaining</span>
+              <strong id="accountEmiRemaining">₹0</strong>
+            </article>
+            <article class="snapshot-tile">
+              <span>Principal Remaining</span>
+              <strong id="accountEmiPrincipalRemaining">₹0</strong>
+            </article>
+            <article class="snapshot-tile">
+              <span>Interest + GST Remaining</span>
+              <strong id="accountEmiInterestRemaining">₹0</strong>
+            </article>
+          </div>
+          <div id="accountEmiList" class="stack-list empty-state">No active EMI on this card.</div>
         </section>
 
         <section class="summary-grid">

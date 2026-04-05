@@ -49,6 +49,8 @@ const state = {
   cards: [],
   transactions: [],
   rewardActivities: [],
+  emiAccounts: [],
+  emiInstallments: [],
   rewardRulesCatalog: [],
   milestoneCatalog: [],
   sharedLimitGroups: [],
@@ -59,6 +61,8 @@ const state = {
     activeCardId: null,
     editingCardId: null,
     editingTransactionId: null,
+    editingEmiId: null,
+    editingEmiInstallmentId: null,
     editingRewardRuleId: null,
     editingMilestoneId: null,
     editingSharedLimitGroupId: null,
@@ -143,6 +147,35 @@ function cacheElements() {
   elements.clearTransactionSearchButton = document.getElementById("clearTransactionSearchButton");
   elements.transactionSearchSummary = document.getElementById("transactionSearchSummary");
   elements.transactionTableBody = document.getElementById("transactionTableBody");
+  elements.emiForm = document.getElementById("emiForm");
+  elements.emiCard = document.getElementById("emiCard");
+  elements.emiMerchant = document.getElementById("emiMerchant");
+  elements.emiDescription = document.getElementById("emiDescription");
+  elements.emiOriginalAmount = document.getElementById("emiOriginalAmount");
+  elements.emiConversionDate = document.getElementById("emiConversionDate");
+  elements.emiTenureMonths = document.getElementById("emiTenureMonths");
+  elements.emiMonthlyAmount = document.getElementById("emiMonthlyAmount");
+  elements.emiProcessingFee = document.getElementById("emiProcessingFee");
+  elements.emiProcessingFeeGst = document.getElementById("emiProcessingFeeGst");
+  elements.emiNextDueDate = document.getElementById("emiNextDueDate");
+  elements.emiStatus = document.getElementById("emiStatus");
+  elements.emiNotes = document.getElementById("emiNotes");
+  elements.cancelEmiEditButton = document.getElementById("cancelEmiEditButton");
+  elements.emiSummaryCard = document.getElementById("emiSummaryCard");
+  elements.emiTableBody = document.getElementById("emiTableBody");
+  elements.emiInstallmentForm = document.getElementById("emiInstallmentForm");
+  elements.emiInstallmentEmiId = document.getElementById("emiInstallmentEmiId");
+  elements.emiInstallmentNumber = document.getElementById("emiInstallmentNumber");
+  elements.emiInstallmentDueDate = document.getElementById("emiInstallmentDueDate");
+  elements.emiInstallmentPrincipal = document.getElementById("emiInstallmentPrincipal");
+  elements.emiInstallmentInterest = document.getElementById("emiInstallmentInterest");
+  elements.emiInstallmentGst = document.getElementById("emiInstallmentGst");
+  elements.emiInstallmentTotal = document.getElementById("emiInstallmentTotal");
+  elements.emiInstallmentStatus = document.getElementById("emiInstallmentStatus");
+  elements.emiInstallmentNotes = document.getElementById("emiInstallmentNotes");
+  elements.addNextEmiInstallmentButton = document.getElementById("addNextEmiInstallmentButton");
+  elements.cancelEmiInstallmentEditButton = document.getElementById("cancelEmiInstallmentEditButton");
+  elements.emiInstallmentTableBody = document.getElementById("emiInstallmentTableBody");
   elements.accountViewTitle = document.getElementById("accountViewTitle");
   elements.accountViewSubtitle = document.getElementById("accountViewSubtitle");
   elements.backToDashboardButton = document.getElementById("backToDashboardButton");
@@ -156,6 +189,11 @@ function cacheElements() {
   elements.accountCycleBilled = document.getElementById("accountCycleBilled");
   elements.accountCyclePaid = document.getElementById("accountCyclePaid");
   elements.accountCyclePending = document.getElementById("accountCyclePending");
+  elements.accountEmiCount = document.getElementById("accountEmiCount");
+  elements.accountEmiRemaining = document.getElementById("accountEmiRemaining");
+  elements.accountEmiPrincipalRemaining = document.getElementById("accountEmiPrincipalRemaining");
+  elements.accountEmiInterestRemaining = document.getElementById("accountEmiInterestRemaining");
+  elements.accountEmiList = document.getElementById("accountEmiList");
   elements.accountMetaSummary = document.getElementById("accountMetaSummary");
   elements.accountSearchMerchant = document.getElementById("accountSearchMerchant");
   elements.accountSearchDescription = document.getElementById("accountSearchDescription");
@@ -250,6 +288,8 @@ function bindEvents() {
   });
 
   elements.transactionForm.addEventListener("submit", handleTransactionSubmit);
+  elements.emiForm.addEventListener("submit", handleEmiSubmit);
+  elements.emiInstallmentForm.addEventListener("submit", handleEmiInstallmentSubmit);
   elements.cardForm.addEventListener("submit", handleCardSubmit);
   elements.sharedLimitGroupForm.addEventListener("submit", handleSharedLimitGroupSubmit);
   elements.rewardRuleForm.addEventListener("submit", handleRewardRuleSubmit);
@@ -259,6 +299,9 @@ function bindEvents() {
   elements.cancelCardEditButton.addEventListener("click", resetCardForm);
   elements.cancelSharedLimitGroupEditButton.addEventListener("click", resetSharedLimitGroupForm);
   elements.cancelTransactionEditButton.addEventListener("click", resetTransactionForm);
+  elements.cancelEmiEditButton.addEventListener("click", resetEmiForm);
+  elements.cancelEmiInstallmentEditButton.addEventListener("click", resetEmiInstallmentForm);
+  elements.addNextEmiInstallmentButton.addEventListener("click", prepareNextEmiInstallment);
   elements.cancelRewardRuleEditButton.addEventListener("click", resetRewardRuleForm);
   elements.cancelMilestoneEditButton.addEventListener("click", resetMilestoneForm);
   elements.syncButton.addEventListener("click", syncFromRemote);
@@ -310,6 +353,20 @@ function bindEvents() {
   elements.sharedLimitGroupsTableBody.addEventListener("click", handleSharedLimitGroupTableActions);
   elements.transactionTableBody.addEventListener("click", handleTransactionTableActions);
   elements.accountTransactionTableBody.addEventListener("click", handleTransactionTableActions);
+  elements.emiTableBody.addEventListener("click", handleEmiTableActions);
+  elements.emiInstallmentTableBody.addEventListener("click", handleEmiInstallmentTableActions);
+
+  [
+    elements.emiInstallmentPrincipal,
+    elements.emiInstallmentInterest,
+    elements.emiInstallmentGst
+  ].forEach((field) => field.addEventListener("input", updateEmiInstallmentTotal));
+
+  elements.emiInstallmentEmiId.addEventListener("change", () => {
+    if (!state.ui.editingEmiInstallmentId) {
+      prepareNextEmiInstallment();
+    }
+  });
   elements.navigatorCardList.addEventListener("click", handleOpenCardRequest);
   elements.priorityDueList.addEventListener("click", handleOpenCardRequest);
   elements.statementOrderList.addEventListener("click", handleOpenCardRequest);
@@ -331,6 +388,8 @@ function loadLocalState() {
     state.cards = Array.isArray(parsed.cards) ? parsed.cards.map(normalizeCard) : [];
     state.transactions = Array.isArray(parsed.transactions) ? parsed.transactions.map(normalizeTransaction) : [];
     state.rewardActivities = Array.isArray(parsed.rewardActivities) ? parsed.rewardActivities.map(normalizeRewardActivity) : [];
+    state.emiAccounts = Array.isArray(parsed.emiAccounts) ? parsed.emiAccounts.map(normalizeEmiAccount) : [];
+    state.emiInstallments = Array.isArray(parsed.emiInstallments) ? parsed.emiInstallments.map(normalizeEmiInstallment) : [];
     state.rewardRulesCatalog = Array.isArray(parsed.rewardRulesCatalog) ? parsed.rewardRulesCatalog.map(normalizeAdvancedRewardRule) : [];
     state.milestoneCatalog = Array.isArray(parsed.milestoneCatalog) ? parsed.milestoneCatalog.map(normalizeMilestoneRule) : [];
     state.sharedLimitGroups = Array.isArray(parsed.sharedLimitGroups) ? parsed.sharedLimitGroups.map(normalizeSharedLimitGroup) : [];
@@ -346,6 +405,8 @@ function saveLocalState() {
     cards: state.cards,
     transactions: state.transactions,
     rewardActivities: state.rewardActivities,
+    emiAccounts: state.emiAccounts,
+    emiInstallments: state.emiInstallments,
     rewardRulesCatalog: state.rewardRulesCatalog,
     milestoneCatalog: state.milestoneCatalog,
     sharedLimitGroups: state.sharedLimitGroups,
@@ -354,6 +415,11 @@ function saveLocalState() {
 }
 
 function seedStarterData() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("demo") !== "1") {
+    return;
+  }
+
   if (state.cards.length > 0) {
     return;
   }
@@ -407,6 +473,8 @@ function dedupeState() {
     Number(rule.rewardValue || 0)
   ].join("|"));
   state.sharedLimitGroups = dedupeItemsByKey(state.sharedLimitGroups, (group) => normalizeCardKey(group.groupName));
+  state.emiAccounts = dedupeItemsByKey(state.emiAccounts, (emi) => String(emi.id || ""));
+  state.emiInstallments = dedupeItemsByKey(state.emiInstallments, (item) => String(item.id || ""));
 
   if (state.ui.activeCardId && !getCardById(state.ui.activeCardId)) {
     state.ui.activeCardId = null;
@@ -545,6 +613,7 @@ function getCycleSpendForMilestone(card, cycleType) {
 function setDefaultDates() {
   const today = new Date().toISOString().split("T")[0];
   elements.transactionDate.value = today;
+  elements.emiConversionDate.value = today;
   if (!elements.anniversaryDate.value) {
     elements.anniversaryDate.value = today;
   }
@@ -592,6 +661,7 @@ function populateCardDropdowns() {
   elements.transactionSearchCard.innerHTML = searchOptions;
   elements.rewardRuleCard.innerHTML = transactionOptions;
   elements.milestoneCard.innerHTML = transactionOptions;
+  elements.emiCard.innerHTML = transactionOptions;
 
   if (sortedCards.length) {
     const activeCard = getCardById(state.ui.activeCardId);
@@ -606,9 +676,27 @@ function populateCardDropdowns() {
     if (!getCardById(elements.milestoneCard.value)) {
       elements.milestoneCard.value = sortedCards[0].id;
     }
+    if (!getCardById(elements.emiCard.value)) {
+      elements.emiCard.value = activeCard ? activeCard.id : sortedCards[0].id;
+    }
   }
 
   updateTransactionPreview();
+  populateEmiAccountDropdown();
+}
+
+function populateEmiAccountDropdown() {
+  if (!elements.emiInstallmentEmiId) {
+    return;
+  }
+  const accounts = getSortedEmiAccounts();
+  elements.emiInstallmentEmiId.innerHTML = accounts.length
+    ? accounts.map((emi) => `<option value="${emi.id}">${escapeHtml(emi.cardName || "-")} - ${escapeHtml(emi.merchant || "EMI")}</option>`).join("")
+    : `<option value="">No EMI accounts available</option>`;
+
+  if (accounts.length && !accounts.some((emi) => emi.id === elements.emiInstallmentEmiId.value)) {
+    elements.emiInstallmentEmiId.value = accounts[0].id;
+  }
 }
 
 function renderApp() {
@@ -621,6 +709,8 @@ function renderApp() {
   renderDashboard();
   renderRewardRulesManager();
   renderMilestonesManager();
+  renderEmiManager();
+  renderEmiInstallmentsManager();
   renderTransactionsView();
   renderCardsTable();
   renderSharedLimitGroupsTable();
@@ -685,6 +775,9 @@ function activateView(viewId) {
   renderViews();
   if (viewId === "transactions-view") {
     renderTransactionsView();
+  }
+  if (viewId === "emi-view") {
+    renderEmiManager();
   }
   if (viewId === "account-view") {
     renderAccountView();
@@ -823,6 +916,86 @@ function renderMilestonesManager() {
       <td><button class="table-action-btn" type="button" data-edit-milestone="${rule.id}">Edit</button></td>
     </tr>
   `).join("");
+}
+
+function renderEmiManager() {
+  const emiAccounts = getSortedEmiAccounts();
+  const activeEmis = emiAccounts.filter((item) => item.status === "Active" && getEmiRemainingInstallments(item) > 0);
+  const totalRemaining = activeEmis.reduce((sum, item) => sum + getEmiRemainingAmount(item), 0);
+  const principalRemaining = activeEmis.reduce((sum, item) => sum + getEmiRemainingPrincipal(item), 0);
+  const interestGstRemaining = activeEmis.reduce((sum, item) => sum + getEmiRemainingInterest(item) + getEmiRemainingGst(item), 0);
+
+  if (!emiAccounts.length) {
+    elements.emiSummaryCard.className = "result-card empty-state";
+    elements.emiSummaryCard.textContent = "No EMI accounts added yet.";
+    elements.emiTableBody.innerHTML = `<tr><td colspan="10">No EMI accounts added yet.</td></tr>`;
+    return;
+  }
+
+  elements.emiSummaryCard.className = "result-card";
+  elements.emiSummaryCard.innerHTML = `
+    <div class="row-between">
+      <div>
+        <h4>${activeEmis.length} active EMI account${activeEmis.length === 1 ? "" : "s"}</h4>
+        <p class="mini-text">Track remaining EMI, installment progress, and one-time conversion charges across all cards.</p>
+      </div>
+      <span class="pill good">${emiAccounts.length} total</span>
+    </div>
+    <p><strong>Remaining EMI amount:</strong> ${formatCurrency(totalRemaining)}</p>
+    <p><strong>Principal remaining:</strong> ${formatCurrency(principalRemaining)}</p>
+    <p><strong>Interest + GST remaining:</strong> ${formatCurrency(interestGstRemaining)}</p>
+  `;
+
+  elements.emiTableBody.innerHTML = emiAccounts.map((emi) => {
+    const paidInstallments = getEmiPaidInstallmentCount(emi);
+    const remainingInstallments = getEmiRemainingInstallments(emi);
+    const remainingAmount = getEmiRemainingAmount(emi);
+    const interestGstLeft = getEmiRemainingInterest(emi) + getEmiRemainingGst(emi);
+    const oneTimeCharges = Number(emi.processingFee || 0) + Number(emi.processingFeeGst || 0);
+    return `
+      <tr>
+        <td>${escapeHtml(emi.cardName || getCardNameById(emi.cardId) || "-")}</td>
+        <td>
+          <strong>${escapeHtml(emi.merchant || "-")}</strong>
+          <div class="mini-text">${escapeHtml(emi.description || "-")}</div>
+        </td>
+        <td>${paidInstallments}/${emi.tenureMonths} paid <div class="mini-text">${remainingInstallments} left</div></td>
+        <td>${formatCurrency(emi.emiAmount)}</td>
+        <td>${formatCurrency(remainingAmount)}</td>
+        <td>${formatCurrency(getEmiRemainingPrincipal(emi))}</td>
+        <td>${formatCurrency(interestGstLeft)}</td>
+        <td>${formatCurrency(oneTimeCharges)}</td>
+        <td><span class="pill ${emi.status === "Active" ? "good" : "warn"}">${escapeHtml(emi.status)}</span></td>
+        <td><button class="table-action-btn" type="button" data-edit-emi="${emi.id}">Edit</button></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderEmiInstallmentsManager() {
+  const installments = getSortedEmiInstallments();
+  if (!installments.length) {
+    elements.emiInstallmentTableBody.innerHTML = `<tr><td colspan="9">No EMI installments added yet.</td></tr>`;
+    return;
+  }
+
+  elements.emiInstallmentTableBody.innerHTML = installments.map((item) => {
+    const emi = getEmiAccountById(item.emiId);
+    const emiLabel = emi ? `${emi.cardName} - ${emi.merchant || "EMI"}` : "Unknown EMI";
+    return `
+      <tr>
+        <td>${escapeHtml(emiLabel)}</td>
+        <td>${item.installmentNumber}</td>
+        <td>${formatDate(item.dueDate)}</td>
+        <td>${formatCurrency(item.principalAmount)}</td>
+        <td>${formatCurrency(item.interestAmount)}</td>
+        <td>${formatCurrency(item.gstAmount)}</td>
+        <td>${formatCurrency(item.totalAmount)}</td>
+        <td><span class="pill ${item.status === "Paid" ? "good" : "warn"}">${escapeHtml(item.status)}</span></td>
+        <td><button class="table-action-btn" type="button" data-edit-emi-installment="${item.id}">Edit</button></td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderPriorityDueList(items) {
@@ -1035,6 +1208,12 @@ function renderAccountView() {
     elements.accountCycleBilled.textContent = "₹0";
     elements.accountCyclePaid.textContent = "₹0";
     elements.accountCyclePending.textContent = "₹0";
+    elements.accountEmiCount.textContent = "0";
+    elements.accountEmiRemaining.textContent = "₹0";
+    elements.accountEmiPrincipalRemaining.textContent = "₹0";
+    elements.accountEmiInterestRemaining.textContent = "₹0";
+    elements.accountEmiList.className = "stack-list empty-state";
+    elements.accountEmiList.textContent = "No active EMI on this card.";
     elements.accountMetaSummary.className = "stack-list empty-state";
     elements.accountMetaSummary.textContent = "No card selected.";
     elements.accountSearchSummary.className = "result-card empty-state";
@@ -1055,6 +1234,7 @@ function renderAccountView() {
   elements.accountAnniversarySpend.textContent = formatCurrency(getCardAnniversarySpend(card));
   elements.accountRewardTotal.textContent = formatPoints(getCardRewardTotal(card));
   renderAccountCycleSummary(card);
+  renderAccountEmiSummary(card);
 
   renderAccountMetaSummary(card, accountTransactions);
   renderAccountSearchSummary(card, filteredTransactions);
@@ -1084,6 +1264,7 @@ function renderAccountView() {
 function renderAccountMetaSummary(card, transactions) {
   const nextDue = getLiveDueDate(card);
   const cycle = getLatestBillCycle(card);
+  const emiSummary = getCardEmiSummary(card);
   const sharedGroup = getSharedLimitGroupForCard(card);
   const sharedMembers = sharedGroup ? getCardsInSharedGroup(sharedGroup.groupName).map((item) => item.cardName).filter((name) => name !== card.cardName) : [];
   const totalTransactions = transactions.length;
@@ -1107,6 +1288,7 @@ function renderAccountMetaSummary(card, transactions) {
       <div class="summary-copy">${totalTransactions} total transaction${totalTransactions === 1 ? "" : "s"} | ${paymentCount} credit/payment entries</div>
       <div class="summary-copy">${uniqueMerchants} merchants | ${uniqueClients} client descriptions</div>
       <div class="summary-copy">Anniversary spend ${formatCurrency(getCardAnniversarySpend(card))}</div>
+      <div class="summary-copy">Active EMI ${emiSummary.activeCount} | Remaining ${formatCurrency(emiSummary.remainingAmount)}</div>
     </div>
     <div class="meta-block">
       <strong>Rewards & Milestones</strong>
@@ -1129,6 +1311,41 @@ function renderAccountCycleSummary(card) {
   elements.accountCycleBilled.textContent = formatCurrency(cycle.billedAmount);
   elements.accountCyclePaid.textContent = formatCurrency(cycle.paidAmount);
   elements.accountCyclePending.textContent = formatCurrency(cycle.pendingAmount);
+}
+
+function renderAccountEmiSummary(card) {
+  const summary = getCardEmiSummary(card);
+  elements.accountEmiCount.textContent = String(summary.activeCount);
+  elements.accountEmiRemaining.textContent = formatCurrency(summary.remainingAmount);
+  elements.accountEmiPrincipalRemaining.textContent = formatCurrency(summary.principalRemaining);
+  elements.accountEmiInterestRemaining.textContent = formatCurrency(summary.interestRemaining + summary.gstRemaining);
+
+  if (!summary.activeEmis.length) {
+    elements.accountEmiList.className = "stack-list empty-state";
+    elements.accountEmiList.textContent = "No active EMI on this card.";
+    return;
+  }
+
+  elements.accountEmiList.className = "emi-inline-list";
+  elements.accountEmiList.innerHTML = summary.activeEmis.map((emi) => `
+    <article class="emi-mini-card">
+      <div class="row-between">
+        <div>
+          <strong>${escapeHtml(emi.merchant || "EMI Account")}</strong>
+          <div class="mini-text">${escapeHtml(emi.description || "-")}</div>
+        </div>
+        <span class="pill good">${getEmiRemainingInstallments(emi)} left</span>
+      </div>
+      <div class="emi-mini-grid">
+        <div class="summary-copy">Monthly EMI: ${formatCurrency(emi.emiAmount)}</div>
+        <div class="summary-copy">Next EMI: ${emi.nextDueDate ? formatDate(emi.nextDueDate) : "-"}</div>
+        <div class="summary-copy">Principal left: ${formatCurrency(getEmiRemainingPrincipal(emi))}</div>
+        <div class="summary-copy">Interest + GST left: ${formatCurrency(getEmiRemainingInterest(emi) + getEmiRemainingGst(emi))}</div>
+        <div class="summary-copy">Total remaining: ${formatCurrency(getEmiRemainingAmount(emi))}</div>
+        <div class="summary-copy">One-time charges: ${formatCurrency(Number(emi.processingFee || 0) + Number(emi.processingFeeGst || 0))}</div>
+      </div>
+    </article>
+  `).join("");
 }
 
 function renderAccountSearchSummary(card, filteredTransactions) {
@@ -1448,6 +1665,105 @@ async function handleCardSubmit(event) {
   }
 }
 
+async function handleEmiSubmit(event) {
+  event.preventDefault();
+
+  const card = getCardById(elements.emiCard.value);
+  if (!card) {
+    showToast("Please select a valid card for EMI.");
+    return;
+  }
+
+  const emi = normalizeEmiAccount({
+    id: state.ui.editingEmiId || createId(),
+    cardId: card.id,
+    cardName: card.cardName,
+    merchant: elements.emiMerchant.value.trim(),
+    description: elements.emiDescription.value.trim(),
+    originalAmount: Number(elements.emiOriginalAmount.value || 0),
+    conversionDate: elements.emiConversionDate.value,
+    tenureMonths: Number(elements.emiTenureMonths.value || 0),
+    emiAmount: Number(elements.emiMonthlyAmount.value || 0),
+    processingFee: Number(elements.emiProcessingFee.value || 0),
+    processingFeeGst: Number(elements.emiProcessingFeeGst.value || 0),
+    nextDueDate: elements.emiNextDueDate.value,
+    status: elements.emiStatus.value,
+    notes: elements.emiNotes.value.trim()
+  });
+
+  if (emi.originalAmount <= 0 || emi.tenureMonths <= 0 || emi.emiAmount <= 0) {
+    showToast("Please enter valid EMI amount, original amount, and tenure.");
+    return;
+  }
+
+  if (state.ui.editingEmiId) {
+    const index = state.emiAccounts.findIndex((item) => item.id === state.ui.editingEmiId);
+    if (index >= 0) {
+      state.emiAccounts[index] = emi;
+    }
+  } else {
+    state.emiAccounts.push(emi);
+  }
+
+  const wasEditing = Boolean(state.ui.editingEmiId);
+  saveLocalState();
+  renderApp();
+  resetEmiForm();
+  showToast(wasEditing ? "EMI updated successfully." : "EMI saved successfully.");
+  await syncRecord("emiAccounts", emi);
+}
+
+async function handleEmiInstallmentSubmit(event) {
+  event.preventDefault();
+
+  const emi = getEmiAccountById(elements.emiInstallmentEmiId.value);
+  if (!emi) {
+    showToast("Please select a valid EMI account.");
+    return;
+  }
+
+  const installment = normalizeEmiInstallment({
+    id: state.ui.editingEmiInstallmentId || createId(),
+    emiId: emi.id,
+    cardId: emi.cardId,
+    cardName: emi.cardName,
+    installmentNumber: Number(elements.emiInstallmentNumber.value || 0),
+    dueDate: elements.emiInstallmentDueDate.value,
+    principalAmount: Number(elements.emiInstallmentPrincipal.value || 0),
+    interestAmount: Number(elements.emiInstallmentInterest.value || 0),
+    gstAmount: Number(elements.emiInstallmentGst.value || 0),
+    totalAmount: Number(elements.emiInstallmentTotal.value || 0),
+    status: elements.emiInstallmentStatus.value,
+    notes: elements.emiInstallmentNotes.value.trim()
+  });
+
+  if (installment.installmentNumber <= 0 || installment.totalAmount <= 0) {
+    showToast("Please enter a valid EMI installment number and amount.");
+    return;
+  }
+
+  if (state.ui.editingEmiInstallmentId) {
+    const index = state.emiInstallments.findIndex((item) => item.id === state.ui.editingEmiInstallmentId);
+    if (index >= 0) {
+      state.emiInstallments[index] = installment;
+    }
+  } else {
+    state.emiInstallments.push(installment);
+  }
+
+  const wasEditing = Boolean(state.ui.editingEmiInstallmentId);
+  syncEmiAccountPaidInstallments(emi.id);
+  saveLocalState();
+  renderApp();
+  resetEmiInstallmentForm();
+  showToast(wasEditing ? "EMI installment updated." : "EMI installment saved.");
+  await syncRecord("emiInstallments", installment);
+  const refreshedEmi = getEmiAccountById(emi.id);
+  if (refreshedEmi) {
+    await syncRecord("emiAccounts", refreshedEmi);
+  }
+}
+
 async function handleSharedLimitGroupSubmit(event) {
   event.preventDefault();
 
@@ -1586,6 +1902,53 @@ function handleSharedLimitGroupTableActions(event) {
   startSharedLimitGroupEdit(editButton.getAttribute("data-edit-shared-group"));
 }
 
+function handleEmiTableActions(event) {
+  const editButton = event.target.closest("[data-edit-emi]");
+  if (!editButton) {
+    return;
+  }
+  startEmiEdit(editButton.getAttribute("data-edit-emi"));
+}
+
+function handleEmiInstallmentTableActions(event) {
+  const editButton = event.target.closest("[data-edit-emi-installment]");
+  if (!editButton) {
+    return;
+  }
+  startEmiInstallmentEdit(editButton.getAttribute("data-edit-emi-installment"));
+}
+
+function prepareNextEmiInstallment() {
+  const emi = getEmiAccountById(elements.emiInstallmentEmiId.value);
+  if (!emi) {
+    showToast("Please select an EMI account first.");
+    return;
+  }
+
+  state.ui.editingEmiInstallmentId = null;
+  elements.cancelEmiInstallmentEditButton.hidden = true;
+
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  const lastInstallment = installments[installments.length - 1] || null;
+  const nextNumber = lastInstallment ? Number(lastInstallment.installmentNumber || 0) + 1 : 1;
+  const baseDueDate = lastInstallment?.dueDate || emi.nextDueDate || emi.conversionDate || new Date().toISOString().split("T")[0];
+  const nextDueDate = lastInstallment ? addMonthsToDateString(baseDueDate, 1) : baseDueDate;
+
+  elements.emiInstallmentNumber.value = nextNumber;
+  elements.emiInstallmentDueDate.value = nextDueDate;
+  elements.emiInstallmentPrincipal.value = lastInstallment ? lastInstallment.principalAmount : "";
+  elements.emiInstallmentInterest.value = lastInstallment ? lastInstallment.interestAmount : "";
+  elements.emiInstallmentGst.value = lastInstallment ? lastInstallment.gstAmount : "";
+  elements.emiInstallmentStatus.value = "Unpaid";
+  elements.emiInstallmentNotes.value = lastInstallment?.notes || "";
+  if (!lastInstallment) {
+    elements.emiInstallmentTotal.value = emi.emiAmount ? String(Number(Number(emi.emiAmount).toFixed(2))) : "";
+  } else {
+    updateEmiInstallmentTotal();
+  }
+  showToast("Next EMI installment draft filled. Update changed interest or GST if needed.");
+}
+
 function handleTransactionTableActions(event) {
   const button = event.target.closest("[data-edit-transaction]");
   if (!button) {
@@ -1681,6 +2044,51 @@ function startTransactionEdit(transactionId) {
   elements.cancelTransactionEditButton.hidden = false;
   updateTransactionPreview();
   openTransactionModal();
+}
+
+function startEmiEdit(emiId) {
+  const emi = state.emiAccounts.find((item) => item.id === emiId);
+  if (!emi) {
+    return;
+  }
+
+  state.ui.editingEmiId = emiId;
+  elements.emiCard.value = emi.cardId || "";
+  elements.emiMerchant.value = emi.merchant || "";
+  elements.emiDescription.value = emi.description || "";
+  elements.emiOriginalAmount.value = emi.originalAmount || "";
+  elements.emiConversionDate.value = emi.conversionDate || "";
+  elements.emiTenureMonths.value = emi.tenureMonths || "";
+  elements.emiMonthlyAmount.value = emi.emiAmount || "";
+  elements.emiProcessingFee.value = emi.processingFee || "";
+  elements.emiProcessingFeeGst.value = emi.processingFeeGst || "";
+  elements.emiNextDueDate.value = emi.nextDueDate || "";
+  elements.emiStatus.value = emi.status || "Active";
+  elements.emiNotes.value = emi.notes || "";
+  elements.cancelEmiEditButton.hidden = false;
+  activateView("emi-view");
+}
+
+function startEmiInstallmentEdit(installmentId) {
+  const installment = state.emiInstallments.find((item) => item.id === installmentId);
+  if (!installment) {
+    return;
+  }
+
+  state.ui.editingEmiInstallmentId = installmentId;
+  populateEmiAccountDropdown();
+  elements.emiInstallmentEmiId.value = installment.emiId || "";
+  elements.emiInstallmentNumber.value = installment.installmentNumber || "";
+  elements.emiInstallmentDueDate.value = installment.dueDate || "";
+  elements.emiInstallmentPrincipal.value = installment.principalAmount || "";
+  elements.emiInstallmentInterest.value = installment.interestAmount || "";
+  elements.emiInstallmentGst.value = installment.gstAmount || "";
+  elements.emiInstallmentTotal.value = installment.totalAmount || "";
+  elements.emiInstallmentStatus.value = installment.status || "Unpaid";
+  elements.emiInstallmentNotes.value = installment.notes || "";
+  elements.cancelEmiInstallmentEditButton.hidden = false;
+  updateEmiInstallmentTotal();
+  activateView("emi-view");
 }
 
 function startRewardRuleEdit(ruleId) {
@@ -1786,6 +2194,29 @@ function resetMilestoneForm() {
   populateCardDropdowns();
 }
 
+function resetEmiForm() {
+  state.ui.editingEmiId = null;
+  elements.emiForm.reset();
+  elements.cancelEmiEditButton.hidden = true;
+  elements.emiStatus.value = "Active";
+  const today = new Date().toISOString().split("T")[0];
+  elements.emiConversionDate.value = today;
+  if (state.ui.activeCardId && getCardById(state.ui.activeCardId)) {
+    elements.emiCard.value = state.ui.activeCardId;
+  } else {
+    populateCardDropdowns();
+  }
+}
+
+function resetEmiInstallmentForm() {
+  state.ui.editingEmiInstallmentId = null;
+  elements.emiInstallmentForm.reset();
+  elements.cancelEmiInstallmentEditButton.hidden = true;
+  elements.emiInstallmentStatus.value = "Unpaid";
+  populateEmiAccountDropdown();
+  updateEmiInstallmentTotal();
+}
+
 function openTransactionModal() {
   if (state.ui.activeCardId && getCardById(state.ui.activeCardId) && !state.ui.editingTransactionId) {
     elements.transactionCard.value = state.ui.activeCardId;
@@ -1814,6 +2245,8 @@ async function syncFromRemote() {
     state.cards = mergeRecordsById(removeStarterCardsFromState(state.cards, remoteCards), remoteCards, normalizeCard);
     state.transactions = mergeRecordsById(state.transactions, Array.isArray(payload.data.transactions) ? payload.data.transactions.map(normalizeTransaction) : [], normalizeTransaction);
     state.rewardActivities = mergeRecordsById(state.rewardActivities, Array.isArray(payload.data.rewardActivities) ? payload.data.rewardActivities.map(normalizeRewardActivity) : [], normalizeRewardActivity);
+    state.emiAccounts = mergeRecordsById(state.emiAccounts, Array.isArray(payload.data.emiAccounts) ? payload.data.emiAccounts.map(normalizeEmiAccount) : [], normalizeEmiAccount);
+    state.emiInstallments = mergeRecordsById(state.emiInstallments, Array.isArray(payload.data.emiInstallments) ? payload.data.emiInstallments.map(normalizeEmiInstallment) : [], normalizeEmiInstallment);
     state.rewardRulesCatalog = mergeRecordsById(state.rewardRulesCatalog, Array.isArray(payload.data.rewardRules) ? payload.data.rewardRules.map(normalizeAdvancedRewardRule) : [], normalizeAdvancedRewardRule);
     state.milestoneCatalog = mergeRecordsById(state.milestoneCatalog, Array.isArray(payload.data.milestones) ? payload.data.milestones.map(normalizeMilestoneRule) : [], normalizeMilestoneRule);
     state.sharedLimitGroups = mergeRecordsById(state.sharedLimitGroups, Array.isArray(payload.data.sharedLimitGroups) ? payload.data.sharedLimitGroups.map(normalizeSharedLimitGroup) : [], normalizeSharedLimitGroup);
@@ -1846,6 +2279,8 @@ async function replaceLocalWithRemote() {
     state.cards = Array.isArray(payload.data.cards) ? payload.data.cards.map(normalizeCard) : [];
     state.transactions = Array.isArray(payload.data.transactions) ? payload.data.transactions.map(normalizeTransaction) : [];
     state.rewardActivities = Array.isArray(payload.data.rewardActivities) ? payload.data.rewardActivities.map(normalizeRewardActivity) : [];
+    state.emiAccounts = Array.isArray(payload.data.emiAccounts) ? payload.data.emiAccounts.map(normalizeEmiAccount) : [];
+    state.emiInstallments = Array.isArray(payload.data.emiInstallments) ? payload.data.emiInstallments.map(normalizeEmiInstallment) : [];
     state.rewardRulesCatalog = Array.isArray(payload.data.rewardRules) ? payload.data.rewardRules.map(normalizeAdvancedRewardRule) : [];
     state.milestoneCatalog = Array.isArray(payload.data.milestones) ? payload.data.milestones.map(normalizeMilestoneRule) : [];
     state.sharedLimitGroups = Array.isArray(payload.data.sharedLimitGroups) ? payload.data.sharedLimitGroups.map(normalizeSharedLimitGroup) : [];
@@ -1917,6 +2352,8 @@ async function pushLocalDataToGoogleSheets() {
     { sheetType: "cards", records: state.cards },
     { sheetType: "transactions", records: state.transactions },
     { sheetType: "rewardActivities", records: state.rewardActivities },
+    { sheetType: "emiAccounts", records: state.emiAccounts },
+    { sheetType: "emiInstallments", records: state.emiInstallments },
     { sheetType: "rewardRules", records: state.rewardRulesCatalog },
     { sheetType: "milestones", records: state.milestoneCatalog },
     { sheetType: "sharedLimitGroups", records: state.sharedLimitGroups }
@@ -1978,6 +2415,8 @@ function exportBackup() {
       cards: state.cards,
       transactions: state.transactions,
       rewardActivities: state.rewardActivities,
+      emiAccounts: state.emiAccounts,
+      emiInstallments: state.emiInstallments,
       rewardRulesCatalog: state.rewardRulesCatalog,
       milestoneCatalog: state.milestoneCatalog,
       sharedLimitGroups: state.sharedLimitGroups,
@@ -2011,6 +2450,8 @@ function importBackup(event) {
       state.cards = Array.isArray(data.cards) ? data.cards.map(normalizeCard) : [];
       state.transactions = Array.isArray(data.transactions) ? data.transactions.map(normalizeTransaction) : [];
       state.rewardActivities = Array.isArray(data.rewardActivities) ? data.rewardActivities.map(normalizeRewardActivity) : [];
+      state.emiAccounts = Array.isArray(data.emiAccounts) ? data.emiAccounts.map(normalizeEmiAccount) : [];
+      state.emiInstallments = Array.isArray(data.emiInstallments) ? data.emiInstallments.map(normalizeEmiInstallment) : [];
       state.rewardRulesCatalog = Array.isArray(data.rewardRulesCatalog) ? data.rewardRulesCatalog.map(normalizeAdvancedRewardRule) : [];
       state.milestoneCatalog = Array.isArray(data.milestoneCatalog) ? data.milestoneCatalog.map(normalizeMilestoneRule) : [];
       state.sharedLimitGroups = Array.isArray(data.sharedLimitGroups) ? data.sharedLimitGroups.map(normalizeSharedLimitGroup) : [];
@@ -2261,6 +2702,149 @@ function getCardExpiredPoints(card) {
 
 function getCardRewardTotal(card) {
   return Math.max(getCardRewardEarnedFromTransactions(card) - getCardRedeemedPoints(card) - getCardExpiredPoints(card), 0);
+}
+
+function getSortedEmiAccounts() {
+  return [...state.emiAccounts].sort((a, b) => new Date(b.conversionDate || 0) - new Date(a.conversionDate || 0));
+}
+
+function getSortedEmiInstallments() {
+  return [...state.emiInstallments].sort((a, b) => {
+    const emiDiff = String(a.emiId || "").localeCompare(String(b.emiId || ""));
+    if (emiDiff !== 0) {
+      return emiDiff;
+    }
+    return Number(a.installmentNumber || 0) - Number(b.installmentNumber || 0);
+  });
+}
+
+function getEmiAccountById(emiId) {
+  return state.emiAccounts.find((item) => String(item.id) === String(emiId)) || null;
+}
+
+function getEmiInstallmentsForAccount(emiId) {
+  return state.emiInstallments
+    .filter((item) => String(item.emiId) === String(emiId))
+    .sort((a, b) => Number(a.installmentNumber || 0) - Number(b.installmentNumber || 0));
+}
+
+function getEmiPaidInstallmentCount(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  if (!installments.length) {
+    return Math.max(Number(emi.paidInstallments || 0), 0);
+  }
+  return installments.filter((item) => item.status === "Paid").length;
+}
+
+function getEmiReferenceInstallment(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  return installments.length ? installments[installments.length - 1] : null;
+}
+
+function emiMatchesCard(emi, card) {
+  if (!emi || !card) return false;
+  if (emi.cardId && card.id && String(emi.cardId) === String(card.id)) return true;
+  return normalizeCardKey(emi.cardName) === normalizeCardKey(card.cardName);
+}
+
+function getCardEmiAccounts(card) {
+  return state.emiAccounts.filter((emi) => emiMatchesCard(emi, card));
+}
+
+function getCardActiveEmiAccounts(card) {
+  return getCardEmiAccounts(card).filter((emi) => emi.status === "Active" && getEmiRemainingInstallments(emi) > 0);
+}
+
+function getEmiRemainingInstallments(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  const paidCount = getEmiPaidInstallmentCount(emi);
+  if (installments.length) {
+    return Math.max(Number(emi.tenureMonths || 0) - paidCount, 0);
+  }
+  return Math.max(Number(emi.tenureMonths || 0) - paidCount, 0);
+}
+
+function getEmiRemainingAmount(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  if (installments.length) {
+    const unpaidScheduled = installments
+      .filter((item) => item.status !== "Paid")
+      .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
+    const unscheduledCount = Math.max(Number(emi.tenureMonths || 0) - installments.length, 0);
+    return unpaidScheduled + (unscheduledCount * Number(emi.emiAmount || 0));
+  }
+  return getEmiRemainingInstallments(emi) * Number(emi.emiAmount || 0);
+}
+
+function getEmiRemainingPrincipal(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  if (installments.length) {
+    const unpaidScheduled = installments
+      .filter((item) => item.status !== "Paid")
+      .reduce((sum, item) => sum + Number(item.principalAmount || 0), 0);
+    const referenceInstallment = getEmiReferenceInstallment(emi);
+    const unscheduledCount = Math.max(Number(emi.tenureMonths || 0) - installments.length, 0);
+    const estimatedFuture = unscheduledCount * Number(referenceInstallment?.principalAmount || 0);
+    return unpaidScheduled + estimatedFuture;
+  }
+  return 0;
+}
+
+function getEmiRemainingInterest(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  if (installments.length) {
+    const unpaidScheduled = installments
+      .filter((item) => item.status !== "Paid")
+      .reduce((sum, item) => sum + Number(item.interestAmount || 0), 0);
+    const referenceInstallment = getEmiReferenceInstallment(emi);
+    const unscheduledCount = Math.max(Number(emi.tenureMonths || 0) - installments.length, 0);
+    const estimatedFuture = unscheduledCount * Number(referenceInstallment?.interestAmount || 0);
+    return unpaidScheduled + estimatedFuture;
+  }
+  return 0;
+}
+
+function getEmiRemainingGst(emi) {
+  const installments = getEmiInstallmentsForAccount(emi.id);
+  if (installments.length) {
+    const unpaidScheduled = installments
+      .filter((item) => item.status !== "Paid")
+      .reduce((sum, item) => sum + Number(item.gstAmount || 0), 0);
+    const referenceInstallment = getEmiReferenceInstallment(emi);
+    const unscheduledCount = Math.max(Number(emi.tenureMonths || 0) - installments.length, 0);
+    const estimatedFuture = unscheduledCount * Number(referenceInstallment?.gstAmount || 0);
+    return unpaidScheduled + estimatedFuture;
+  }
+  return 0;
+}
+
+function syncEmiAccountPaidInstallments(emiId) {
+  const emi = getEmiAccountById(emiId);
+  if (!emi) {
+    return;
+  }
+  const installments = getEmiInstallmentsForAccount(emiId);
+  if (!installments.length) {
+    return;
+  }
+  emi.paidInstallments = getEmiPaidInstallmentCount(emi);
+  if (emi.paidInstallments >= Number(emi.tenureMonths || 0)) {
+    emi.status = "Completed";
+  } else if (emi.status === "Completed") {
+    emi.status = "Active";
+  }
+}
+
+function getCardEmiSummary(card) {
+  const activeEmis = getCardActiveEmiAccounts(card);
+  return {
+    activeEmis,
+    activeCount: activeEmis.length,
+    remainingAmount: activeEmis.reduce((sum, emi) => sum + getEmiRemainingAmount(emi), 0),
+    principalRemaining: activeEmis.reduce((sum, emi) => sum + getEmiRemainingPrincipal(emi), 0),
+    interestRemaining: activeEmis.reduce((sum, emi) => sum + getEmiRemainingInterest(emi), 0),
+    gstRemaining: activeEmis.reduce((sum, emi) => sum + getEmiRemainingGst(emi), 0)
+  };
 }
 
 function getAlertData() {
@@ -2671,11 +3255,62 @@ function normalizeRewardActivity(item) {
   };
 }
 
+function normalizeEmiAccount(item) {
+  return {
+    id: String(item.id || createId()),
+    cardId: String(item.cardId || ""),
+    cardName: String(item.cardName || "").trim(),
+    merchant: String(item.merchant || "").trim(),
+    description: String(item.description || "").trim(),
+    originalAmount: Number(item.originalAmount || 0),
+    conversionDate: item.conversionDate || new Date().toISOString().split("T")[0],
+    tenureMonths: Number(item.tenureMonths || 0),
+    paidInstallments: Math.max(Number(item.paidInstallments || 0), 0),
+    emiAmount: Number(item.emiAmount || 0),
+    principalPerInstallment: Number(item.principalPerInstallment || 0),
+    interestPerInstallment: Number(item.interestPerInstallment || 0),
+    gstPerInstallment: Number(item.gstPerInstallment || 0),
+    processingFee: Number(item.processingFee || 0),
+    processingFeeGst: Number(item.processingFeeGst || 0),
+    nextDueDate: item.nextDueDate || "",
+    status: String(item.status || "Active").trim() || "Active",
+    notes: String(item.notes || "").trim()
+  };
+}
+
+function normalizeEmiInstallment(item) {
+  return {
+    id: String(item.id || createId()),
+    emiId: String(item.emiId || ""),
+    cardId: String(item.cardId || ""),
+    cardName: String(item.cardName || "").trim(),
+    installmentNumber: Number(item.installmentNumber || 0),
+    dueDate: item.dueDate || new Date().toISOString().split("T")[0],
+    principalAmount: Number(item.principalAmount || 0),
+    interestAmount: Number(item.interestAmount || 0),
+    gstAmount: Number(item.gstAmount || 0),
+    totalAmount: Number(item.totalAmount || 0),
+    status: String(item.status || "Unpaid").trim() || "Unpaid",
+    notes: String(item.notes || "").trim()
+  };
+}
+
+function updateEmiInstallmentTotal() {
+  if (!elements.emiInstallmentTotal) {
+    return;
+  }
+  const principal = Number(elements.emiInstallmentPrincipal.value || 0);
+  const interest = Number(elements.emiInstallmentInterest.value || 0);
+  const gst = Number(elements.emiInstallmentGst.value || 0);
+  const total = principal + interest + gst;
+  elements.emiInstallmentTotal.value = total > 0 ? String(Number(total.toFixed(2))) : "";
+}
+
 function normalizeTransactionNature(value) {
   const normalized = normalizeCardKey(value);
-  if (normalized === "payment" || normalized === "credit") return "Payment";
-  if (normalized === "refund") return "Refund";
-  if (normalized === "bonus") return "Bonus";
+  if (normalized.includes("refund")) return "Refund";
+  if (normalized.includes("bonus")) return "Bonus";
+  if (normalized === "payment" || normalized === "credit" || normalized.includes("payment") || normalized.includes("credit")) return "Payment";
   return "Expense";
 }
 
@@ -2853,6 +3488,18 @@ function createDateForDay(year, monthIndex, dayOfMonth) {
   const lastDay = new Date(year, monthIndex + 1, 0).getDate();
   date.setDate(Math.min(safeDay, lastDay));
   return date;
+}
+
+function addMonthsToDateString(dateString, monthsToAdd) {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString().split("T")[0];
+  }
+  const originalDay = date.getDate();
+  const target = new Date(date.getFullYear(), date.getMonth() + monthsToAdd, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(originalDay, lastDay));
+  return target.toISOString().split("T")[0];
 }
 
 function formatJsonForEditor(value) {
