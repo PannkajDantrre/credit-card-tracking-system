@@ -2296,7 +2296,7 @@ function getLatestBillCycle(card) {
   const statementDay = Number(card.statementDate || card.billingCycleDate || 1);
   const currentStatementDate = getLatestStatementDate(today, statementDay);
   const previousStatementDate = createDateForDay(currentStatementDate.getFullYear(), currentStatementDate.getMonth() - 1, statementDay);
-  const liveDueDate = createDateForDay(currentStatementDate.getFullYear(), currentStatementDate.getMonth(), Number(card.dueDate || 1));
+  const liveDueDate = getDueDateForStatementDate(currentStatementDate, Number(card.dueDate || 1));
   const paymentWindowEnd = today < liveDueDate ? today : liveDueDate;
 
   const transactions = getCardTransactions(card);
@@ -2312,7 +2312,7 @@ function getLatestBillCycle(card) {
     .filter((item) => isCreditNature(item.transactionNature))
     .filter((item) => {
       const txDate = startOfDay(new Date(item.date));
-      return txDate > currentStatementDate && txDate <= paymentWindowEnd;
+      return txDate > previousStatementDate && txDate <= paymentWindowEnd;
     })
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -2331,11 +2331,16 @@ function getLatestBillCycle(card) {
 
 function getLiveDueDate(card) {
   const now = new Date();
-  const currentMonthDue = createDateForDay(now.getFullYear(), now.getMonth(), Number(card.dueDate || 1));
-  if (currentMonthDue >= startOfDay(now)) {
-    return currentMonthDue;
+  const statementDay = Number(card.statementDate || card.billingCycleDate || 1);
+  const latestStatementDate = getLatestStatementDate(startOfDay(now), statementDay);
+  const dueForLatestStatement = getDueDateForStatementDate(latestStatementDate, Number(card.dueDate || 1));
+
+  if (dueForLatestStatement >= startOfDay(now)) {
+    return dueForLatestStatement;
   }
-  return createDateForDay(now.getFullYear(), now.getMonth() + 1, Number(card.dueDate || 1));
+
+  const nextStatementDate = createDateForDay(latestStatementDate.getFullYear(), latestStatementDate.getMonth() + 1, statementDay);
+  return getDueDateForStatementDate(nextStatementDate, Number(card.dueDate || 1));
 }
 
 function getLatestStatementDate(referenceDate, statementDay) {
@@ -2344,6 +2349,13 @@ function getLatestStatementDate(referenceDate, statementDay) {
     return currentMonthStatement;
   }
   return createDateForDay(referenceDate.getFullYear(), referenceDate.getMonth() - 1, statementDay);
+}
+
+function getDueDateForStatementDate(statementDate, dueDay) {
+  const safeDueDay = Number(dueDay || 1);
+  const statementDay = Number(statementDate.getDate() || 1);
+  const monthOffset = safeDueDay <= statementDay ? 1 : 0;
+  return createDateForDay(statementDate.getFullYear(), statementDate.getMonth() + monthOffset, safeDueDay);
 }
 
 function getAnniversaryCycleStart(card) {
